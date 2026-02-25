@@ -60,7 +60,7 @@ export default function Home() {
                 <div className="text-center py-12 text-gray-400">
                   <div className="text-5xl mb-4">📝</div>
                   <p className="text-lg">
-                    {filter === 'all' >
+                    {filter === 'all'
                       ? '还没有任务，添加一个吧！'
                       : filter === 'active'
                       ? '没有进行中的任务'
