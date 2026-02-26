@@ -8,34 +8,24 @@ on:
 jobs:
   send-weather:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Send Weather Report to Telegram
-      env:
-        BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: |
-        # Get weather data
-        SH=$(curl -s --max-time 30 "wttr.in/Shanghai?format=%c+%t(feels+%f),%w,%h" 2>/dev/null || echo "Shanghai: timeout")
-        TZ=$(curl -s --max-time 30 "wttr.in/Tongzhou?format=%c+%t(feels+%f),%w,%h" 2>/dev/null || echo "Tongzhou: timeout")
-        TJ=$(curl -s --max-time 30 "wttr.in/Taojiang?format=%c+%t(feels+%f),%w,%h" 2>/dev/null || echo "Taojiang: timeout")
-        
-        # Get Beijing time
-        TIME=$(date -d '+8 hours' '+%H:%M')
-        
-        # Build message
-        MESSAGE="Weather Report ${TIME}
-
+      - name: Send Weather Report
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -e
+          TIME=$(date -d '+8 hours' '+%H:%M')
+          
+          SH=$(curl -s --max-time 30 "wttr.in/Shanghai?format=%c+%t" || echo "timeout")
+          TZ=$(curl -s --max-time 30 "wttr.in/Tongzhou?format=%c+%t" || echo "timeout")
+          TJ=$(curl -s --max-time 30 "wttr.in/Taojiang?format=%c+%t" || echo "timeout")
+          
+          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${CHAT_ID}" \
+            -d "text=Weather ${TIME}
 Shanghai: ${SH}
 Tongzhou: ${TZ}
-Taojiang: ${TJ}
-
----
-Auto update every hour"
-        
-        # Send to Telegram
-        curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${MESSAGE}"
-        
-        echo "Sent at ${TIME}"
+Taojiang: ${TJ}"
+          
+          echo "Done"
