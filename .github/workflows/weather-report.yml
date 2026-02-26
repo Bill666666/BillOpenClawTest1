@@ -1,29 +1,42 @@
-name: Hourly Weather Report
+name: Hourly Weather Report to Telegram
 
 on:
   schedule:
-    # 每小时执行一次 (UTC时间)
+    # 每小时执行一次（UTC时间）
     - cron: '0 * * * *'
   workflow_dispatch:  # 允许手动触发
 
 jobs:
-  weather-report:
+  send-weather:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        
-    - name: Install dependencies
-      run: npm install
-      
-    - name: Send Weather Report
-      run: node scripts/weather-reporter.js
+    - name: Send Weather Report to Telegram
       env:
-        # 如果需要发送消息到 WhatsApp，需要配置 webhook 或 API
-        WEATHER_WEBHOOK_URL: ${{ secrets.WEATHER_WEBHOOK_URL }}
+        BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: |
+        # 获取天气数据
+        SH=$(curl -s --max-time 30 "wttr.in/Shanghai?format=📍+上海:+%c+%t(体感+%f),%w风,%h湿度" 2>/dev/null || echo "📍 上海: 获取失败")
+        TZ=$(curl -s --max-time 30 "wttr.in/Tongzhou?format=📍+江苏通州:+%c+%t(体感+%f),%w风,%h湿度" 2>/dev/null || echo "📍 江苏通州: 获取失败")
+        TJ=$(curl -s --max-time 30 "wttr.in/Taojiang?format=📍+湖南桃江:+%c+%t(体感+%f),%w风,%h湿度" 2>/dev/null || echo "📍 湖南桃江: 获取失败")
+        
+        # 获取当前时间（北京时间）
+        TIME=$(date -d '+8 hours' '+%H:%M')
+        
+        # 构建消息
+        MESSAGE="🌤️ 天气预报 ${TIME}
+
+${SH}
+${TZ}
+${TJ}
+
+---
+⏰ 每小时自动更新 · 数据来自 wttr.in"
+        
+        # 发送到 Telegram
+        curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${MESSAGE}"
+        
+        echo "Weather report sent at ${TIME}"
