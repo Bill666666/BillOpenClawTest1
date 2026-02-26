@@ -4,47 +4,41 @@ set -e
 TIME=$(date -d '+8 hours' '+%H:%M')
 API_KEY="9225eb489bfd10135d929a05a4ba5261"
 
-# OpenWeatherMap API 获取天气
-get_owm_weather() {
+# 获取天气数据
+get_weather() {
     local city=$1
-    local name=$2
     
-    # 调用 OpenWeatherMap API
-    response=$(curl -s --max-time 30 "https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric&lang=zh_cn" 2>/dev/null)
+    response=$(curl -s --max-time 30 "https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric&lang=zh_cn")
     
-    # 检查是否成功
-    if echo "$response" | grep -q '"cod":200'; then
-        temp=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin)['main']['temp'])" 2>/dev/null || echo "?")
-        feels=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin)['main']['feels_like'])" 2>/dev/null || echo "?")
-        desc=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin)['weather'][0]['description'])" 2>/dev/null || echo "未知")
-        humidity=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin)['main']['humidity'])" 2>/dev/null || echo "?")
+    # 解析 JSON
+    temp=$(echo "$response" | grep -o '"temp":[0-9.]*' | cut -d':' -f2)
+    feels=$(echo "$response" | grep -o '"feels_like":[0-9.]*' | cut -d':' -f2)
+    humidity=$(echo "$response" | grep -o '"humidity":[0-9]*' | cut -d':' -f2 | head -1)
+    desc=$(echo "$response" | grep -o '"description":"[^"]*"' | cut -d'"' -f4)
+    
+    if [ -n "$temp" ]; then
         echo "${desc}, ${temp}°C(体感${feels}°C), 湿度${humidity}%"
     else
-        # 失败时使用 wttr.in 备用
-        echo "$(curl -s --max-time 30 "wttr.in/${city}?format=%c+%t" 2>/dev/null || echo '获取失败')"
+        echo "获取失败"
     fi
 }
 
-echo "Fetching weather data..."
+echo "Fetching weather..."
+SH=$(get_weather "Shanghai")
+TZ=$(get_weather "Tongzhou,CN")
+TJ=$(get_weather "Taojiang,CN")
 
-# 获取三个城市天气（使用英文城市名）
-SH=$(get_owm_weather "Shanghai" "上海")
-sleep 1
-TZ=$(get_owm_weather "Tongzhou,CN" "通州")
-sleep 1
-TJ=$(get_owm_weather "Taojiang,CN" "桃江")
-
-echo "Sending to Telegram..."
-
-curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-  -d "chat_id=${CHAT_ID}" \
-  -d "text=🌤️ 天气播报 ${TIME}
+MESSAGE="🌤️ 天气播报 ${TIME}
 
 📍 上海: ${SH}
 📍 江苏通州: ${TZ}
 📍 湖南桃江: ${TJ}
 
 ---
-⏰ 每小时自动更新"
+⏰ 每小时自动更新 · OpenWeatherMap"
 
-echo "Done at ${TIME}"
+curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+  -d "chat_id=${CHAT_ID}" \
+  -d "text=${MESSAGE}"
+
+echo "Done"
