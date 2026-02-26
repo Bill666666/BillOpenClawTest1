@@ -2,7 +2,7 @@ name: Hourly Weather Report
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '* * * * *'
   workflow_dispatch:
 
 jobs:
